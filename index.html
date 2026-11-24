@@ -1,9 +1,18 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>모찌 로켓 연구소</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
+html,body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+
 /* 레이아웃: 위쪽 고정 발사 바 / 데스크톱은 좌 변인 통제(탭 1~5) + 우 측정·3D(6) / 좁은 화면은 3D가 먼저 / 맨 아래 실험 비교표 */
 :root{
   --bg:#edf2f9; --panel:#ffffff; --panel2:#f4f7fc; --ink:#16202f; --muted:#5a677d; --line:#d5deea;
@@ -200,7 +209,7 @@ ol.evlog li.good span:last-child{color:var(--good);font-weight:700}
 .runs h2{margin:0;font-size:18px;font-family:var(--font-display);font-weight:400}
 .runs .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
 .runs .tbl-wrap{margin:0 16px 14px;max-height:520px}
-.runs table{min-width:1180px}
+.runs table{min-width:1360px}
 .runs td.diffs{white-space:normal;min-width:200px}
 .diff{display:inline-block;margin:1px 4px 1px 0;padding:1px 8px;border-radius:999px;background:var(--chip);font-size:12px}
 .diff b{font-weight:700}
@@ -219,6 +228,8 @@ td.act{display:flex;gap:4px}
 @media (prefers-reduced-motion:reduce){.track i{transition:none}}
 </style>
 
+</head>
+<body>
 <div class="app">
   <header class="top">
     <div class="brand">
@@ -246,6 +257,8 @@ td.act{display:flex;gap:4px}
       <button class="btn" id="btn-pause" type="button" disabled>⏸ 잠깐 멈춤</button>
       <button class="btn" id="btn-reset" type="button">↺ 처음으로</button>
       <button class="btn" id="btn-instant" type="button" title="화면 없이 결과만 바로 계산해서 표에 적어요">⚡ 바로 결과 보기</button>
+      <button class="btn" id="btn-team" type="button" title="조원 모두 같은 값에서 시작하도록 변인 통제 기본 세팅을 불러와요">👥 조 기본 세팅</button>
+      <button class="btn" id="btn-orbitdef" type="button" title="처음 사이트에 있던 위성 궤도 발사용 값으로 돌아가요">🛰 위성 발사 기본값</button>
     </div>
     <span class="status" id="status" role="status" aria-live="polite"><i class="dot"></i><span>대기</span></span>
     <div class="mini" aria-hidden="true"><span>높이 <b id="mini-alt">0 m</b></span><span>속도 <b id="mini-spd">0 m/s</b></span></div>
@@ -317,6 +330,9 @@ max_altitude = max(max_altitude, h)         매 순간 갱신</pre></details>
 
         <section class="panel" role="tabpanel" id="panel-v0" aria-labelledby="tab-v0" hidden>
           <div class="ph"><h2><span class="n">5</span>발사 속도·각도</h2><p>출발할 때의 속도와 각도, 하늘에서 어떻게 날지 정해요.</p></div>
+          <div class="ctl"><div class="ctl-top"><label for="sel-mode">비행 방식</label></div>
+            <select id="sel-mode"><option value="orbit">위성 궤도에 올리기 (자동 조종)</option><option value="height">높이 재기 (발사 각도 그대로 곧게 쏘기)</option></select>
+            <small class="note" id="mode-note" style="display:block;margin-top:4px"></small></div>
           <h3 class="sub-h">출발</h3>
           <div class="sliders" id="sl-v0"></div>
           <div class="presets" id="v0-presets"></div>
@@ -414,7 +430,7 @@ max_altitude = max(max_altitude, h)         매 순간 갱신</pre></details>
       <table id="runs-table">
         <thead><tr>
           <th class="num">#</th><th>기준과 다른 점</th><th>1단 연료</th><th class="num">전체 무게 kg</th><th class="num">발사각 °</th>
-          <th class="num">최고 높이 km</th><th class="num">기준보다</th><th>궤도 (낮은 곳 × 높은 곳 km)</th><th class="num">최대 속도 m/s</th><th class="num">최대 G</th><th>위성</th><th>결과</th><th>작업</th>
+          <th class="num">최고 높이 km</th><th class="num">기준보다</th><th>궤도 (낮은 곳 × 높은 곳 km)</th><th class="num">최대 속도 m/s</th><th class="num">최대 G</th><th class="num">이륙 가속도 m/s²</th><th class="num">공기 저항 손실 m/s</th><th>방식</th><th>결과</th><th>작업</th>
         </tr></thead>
         <tbody id="runs-body"></tbody>
       </table>
@@ -476,7 +492,7 @@ const DEFAULT_CFG={
   dragOn:true,densModel:true,cd:0.3,scaleH:7000,rotOn:true,
   initial_velocity:0,launch_angle:90,dir:'E',
   vert_alt:1.0,turn_alt:100,target_alt:200,autoCut:true,sep_delay:2,
-  fail:'none',fail_time:40
+  fail:'none',fail_time:40,mode:'orbit'
 };
 const REF_DENS=PARTS.reduce(function(a,p){return a+p.wd*MATERIALS[DEFAULT_CFG.mat[p.k]].dens;},0);
 
@@ -550,7 +566,7 @@ function createSim(cfg){
     x:0,y:R_E,vx:w*R_E+dirS*v0*Math.cos(e0),vy:v0*Math.sin(e0),
     k:0,prop:cfg.stages.map(function(st){return st.cap;}),attached:[true,true,true],wings:true,fairing:true,deployed:false,
     engine:'on',next:null,timer:0,cutForApogee:false,broken:false,e_cur:e0,kickT:null,onPad:v0<=0.01,failed:false,seco:false,
-    debris:[],events:[],dseq:0,
+    debris:[],events:[],dseq:0,dragDV:0,dragE:0,a0:null,ke1:null,h1:null,v1:null,maxKE:0,liftT:null,
     thrust:0,aProp:0,rho:RHO0,q:0,mach:0,vrel:0,mass:P.m0,h:0,speed:0,vin:Math.hypot(w*R_E,0),
     Tb:288,Tw:288,max_altitude:0,maxV:0,maxA:0,maxG:0,maxQ:0,tQ:0,hQ:0,maxTb:288,maxTw:288,
     orbit:null,sweep:0,lastAng:0,sepTimes:[],impact:null,lastSample:-1,lastTraj:-100,hist:[],traj:[]};
@@ -653,7 +669,8 @@ function stepSim(s,dt){
   const launchE=cfg.launch_angle*D2R;
   let eCmd=s.e_cur;
   if(!s.failed&&!s.deployed){
-    if(s.k===0){
+    if(cfg.mode==='height'){eCmd=launchE;}
+    else if(s.k===0){
       const h1=cfg.vert_alt*1000, h2=Math.max(cfg.turn_alt*1000,h1+1000);
       eCmd=launchE*(1-Math.sqrt(clamp((h-h1)/(h2-h1),0,1)));
     }else if(thrust>0){
@@ -678,12 +695,14 @@ function stepSim(s,dt){
   let hold=false;
   if(s.onPad){
     if(thrust*se-m*g<=0)hold=true;
-    else{s.onPad=false;logEv(s,'liftoff','이륙!');}
+    else{s.onPad=false;s.liftT=s.t;s.a0=(thrust*se-m*g)/m;logEv(s,'liftoff','이륙!');}
   }
+  if(!hold&&s.a0===null&&s.t===0){s.liftT=0;s.a0=(thrust*se-m*g)/m;}
   if(!hold){
     s.vx+=((Tx+Dx)/m-g*ux)*dt; s.vy+=((Ty+Dy)/m-g*uy)*dt;
     s.x+=s.vx*dt; s.y+=s.vy*dt;
   }
+  if(!hold){const Dm=Math.hypot(Dx,Dy);s.dragDV+=Dm/m*dt;s.dragE+=Dm*vrel*dt;}
   s.t+=dt;
 
   // 연료 소모와 단 분리
@@ -693,11 +712,13 @@ function stepSim(s,dt){
   if(s.engine==='on'&&s.k<3&&!s.failed&&s.prop[s.k]<=0){
     s.engine='off';
     logEv(s,'burnout',(s.k+1)+'단 연료가 다 탔어요');
+    if(s.k===0){const rv1=Math.hypot(s.vx-w*s.y,s.vy+w*s.x);s.v1=rv1;s.h1=Math.hypot(s.x,s.y)-R_E;s.ke1=0.5*stackMass(s)*rv1*rv1;}
     if(s.k<2){s.next='sep';s.timer=cfg.sep_delay*0.5;}
+    else if(cfg.mode==='height'){logEv(s,'coast','모든 연료를 다 썼어요. 이제 관성으로 올라가요');}
     else{s.next='final';s.timer=2;}
   }
   // 자동 엔진 정지: 궤도가 완성되면 위성을 내보내고, 중간 단은 목표 높이까지 올린 뒤 꼭대기에서 속도를 더 내요
-  if(cfg.autoCut&&s.engine==='on'&&thrust>0&&h>80000&&!s.failed&&!s.deployed){
+  if(cfg.mode!=='height'&&cfg.autoCut&&s.engine==='on'&&thrust>0&&h>80000&&!s.failed&&!s.deployed){
     const o=orbitOf(s.x,s.y,s.vx,s.vy), tg=cfg.target_alt*1000;
     if(o.bound&&o.rpAlt>=Math.max(ORBIT_MIN_ALT,tg*0.97)){
       s.engine='off';s.seco=true;s.next='deploy';s.timer=3;logEv(s,'seco','목표 궤도에 도착! 엔진을 껐어요');
@@ -767,6 +788,7 @@ function stepSim(s,dt){
   if(aProp>s.maxA)s.maxA=aProp;
   const gl=aProp/G0; if(gl>s.maxG)s.maxG=gl;
   if(s.q>s.maxQ){s.maxQ=s.q;s.tQ=s.t;s.hQ=h;}
+  const ke=0.5*s.mass*vrel*vrel; if(ke>s.maxKE)s.maxKE=ke;
 
   // 표면 가열
   const Tamb=Math.max(186,air_temp(h)), k=1.7415e-4, cube=vrel*vrel*vrel;
@@ -796,6 +818,10 @@ function stepSim(s,dt){
     logEv(s,'crash','쾅! 땅에 떨어졌어요');
     finish(s,'crash',s.cause||(s.deployed?'orbit_decay':'suborbital'));
     return;
+  }
+  if(cfg.mode==='height'&&!s.failed&&!s.onPad&&s.engine==='off'&&!s.next&&s.k>=2&&s.prop[2]<=0){
+    const vr2=(s.vx*s.x+s.vy*s.y)/r2;
+    if(vr2<0){logEv(s,'top','가장 높은 곳에 닿았어요: '+(s.max_altitude/1000).toFixed(1)+' km');finish(s,'height','');return;}
   }
   if(s.deployed){
     let d=Math.atan2(s.x,s.y)-s.lastAng; d=Math.atan2(Math.sin(d),Math.cos(d));
@@ -1491,6 +1517,12 @@ function fmtNum(n,d){return Number(n).toLocaleString('ko-KR',{minimumFractionDig
 function fmtTime(t){t=Math.round(t);if(t<60)return t+'초';if(t<3600)return Math.floor(t/60)+'분 '+(t%60)+'초';return Math.floor(t/3600)+'시간 '+Math.floor((t%3600)/60)+'분';}
 function fmtClock(t){t=Math.round(t);return 'T+'+t;}
 
+// 조원 모두가 똑같이 쓰는 변인 통제 기본 세팅 (높이 재기 방식)
+const TEAM_BASE=(function(){const c=clone(DEFAULT_CFG);
+  c.mode='height';c.mat={wing:'ti',body:'al',nozzle:'cer',engine:'cer'};c.area=0.9;c.densTune=1;c.heatTune=1;c.surfTune=1;
+  c.stages=[{fuel:'liq',cell:120,cap:3000,body:1500},{fuel:'liq',cell:30,cap:500,body:400},{fuel:'liq',cell:8,cap:50,body:100}];
+  c.sat_mass=100;c.fairing_mass=80;c.fairing_alt=100;c.dragOn=true;c.densModel=true;c.cd=0.3;c.scaleH=7000;c.rotOn=false;
+  c.initial_velocity=0;c.launch_angle=90;c.dir='E';c.autoCut=true;c.sep_delay=2;c.fail='none';c.fail_time=40;return c;})();
 let cfg=clone(DEFAULT_CFG);
 let sim=null,running=false,paused=false,speed=5,camMode='rocket',evIdx=0,selStage=0,lastWall=0;
 let runs=[],runSeq=0,baseId=null,mapTick=0,chartTick=0,fragLogged=false;
@@ -1552,7 +1584,7 @@ function buildFuel(){
   });
   fuelDetail();
   const host=$('sl-fuel');host.innerHTML='';clearRefreshers(host);
-  const cellR=[[100,1000],[30,400],[8,120]][selStage],capR=[[4000,32000],[1500,12000],[150,1500]][selStage];
+  const cellR=[[50,1000],[10,400],[3,120]][selStage],capR=[[1000,32000],[200,12000],[20,1500]][selStage];
   const sg=document.createElement('div');sg.className='sliders';host.appendChild(sg);
   slider(sg,{label:(selStage+1)+'단 연료 전지 무게',unit:'kg',min:cellR[0],max:cellR[1],step:1,hint:'클수록 연료를 빨리 태워서 힘이 세져요. 대신 무거워요.',get:function(){return st.cell;},set:function(v){st.cell=v;}});
   slider(sg,{label:(selStage+1)+'단 연료 양',unit:'kg',min:capR[0],max:capR[1],step:10,hint:'많을수록 오래 타요. 대신 무거워요.',get:function(){return st.cap;},set:function(v){st.cap=v;}});
@@ -1563,7 +1595,7 @@ function fuelDetail(){
 }
 function buildBody(){
   const host=$('sl-body');host.innerHTML='';clearRefreshers(host);
-  const R=[[800,4500],[250,1500],[80,500]];
+  const R=[[600,4500],[150,1500],[40,500]];
   [0,1,2].forEach(function(i){slider(host,{label:(i+1)+'단 몸통 무게',unit:'kg',min:R[i][0],max:R[i][1],step:10,hint:i===0?'가장 큰 아래쪽 단이에요.':'',get:function(){return cfg.stages[i].body;},set:function(v){cfg.stages[i].body=v;}});});
   slider(host,{label:'위성 무게',unit:'kg',min:20,max:400,step:5,hint:'우주로 보낼 모찌 위성이에요.',get:function(){return cfg.sat_mass;},set:function(v){cfg.sat_mass=v;}});
   slider(host,{label:'위성 덮개(페어링) 무게',unit:'kg',min:20,max:200,step:5,hint:'공기 속에서 위성을 지켜 주는 덮개예요.',get:function(){return cfg.fairing_mass;},set:function(v){cfg.fairing_mass=v;}});
@@ -1589,9 +1621,10 @@ function buildV0(){
   const fh=$('sl-fail');fh.innerHTML='';clearRefreshers(fh);
   slider(fh,{label:'엔진이 꺼지는 때',unit:'초',min:5,max:150,step:1,hint:'‘1단 엔진이 중간에 꺼짐’을 고를 때만 써요.',get:function(){return cfg.fail_time;},set:function(v){cfg.fail_time=v;}});
 }
+const MODE_NOTE={orbit:'자동 조종이 로켓을 눕히고 엔진을 꺼서 위성을 목표 높이에 올려요. 최고 높이는 거의 목표 높이로 정해져요.',height:'발사 각도 그대로 쭉 날아가며 세 단의 연료를 다 써요. 자동 조종이 없어서 바꾼 값의 영향이 최고 높이에 그대로 나타나요. (변인 통제 실험용)'};
 function bindControls(){
   $('sw-drag').checked=cfg.dragOn;$('sw-dens').checked=cfg.densModel;$('sw-rot').checked=cfg.rotOn;$('sw-cut').checked=cfg.autoCut;
-  $('sel-dir').value=cfg.dir;$('sel-fail').value=cfg.fail;
+  $('sel-dir').value=cfg.dir;$('sel-mode').value=cfg.mode;$('mode-note').textContent=MODE_NOTE[cfg.mode];$('sel-fail').value=cfg.fail;
 }
 function buildAll(){buildMat();buildFuel();buildBody();buildDrag();buildV0();bindControls();}
 
@@ -1705,7 +1738,7 @@ function consume(send3d){
 // ---------- 시뮬레이션 제어 ----------
 function lock(on){
   $('vars').disabled=on;$('lock-note').hidden=!on;
-  $('btn-launch').disabled=on;$('btn-instant').disabled=on;$('btn-pause').disabled=!on;
+  $('btn-launch').disabled=on;$('btn-instant').disabled=on;$('btn-team').disabled=on;$('btn-orbitdef').disabled=on;$('btn-pause').disabled=!on;
 }
 function prepare(){
   sim=createSim(clone(cfg));evIdx=0;running=false;paused=false;
@@ -1730,6 +1763,7 @@ function updateStatus(){
   if(sim){
     if(sim.status==='done'){
       if(sim.reason==='orbit'){cls='s-ok';txt='성공! 위성이 궤도에 올랐어요';}
+      else if(sim.reason==='height'){cls='s-ok';txt='측정 완료! 최고 높이 '+fmtLen(sim.max_altitude);}
       else if(sim.reason==='crash'){cls='s-bad';txt='추락했어요';}
       else if(sim.reason==='nolift'){cls='s-warn';txt='못 떠올랐어요';}
       else{cls='s-warn';txt='궤도에 못 올랐어요';}
@@ -1764,20 +1798,27 @@ function showResult(s){
   $('result-empty').hidden=true;$('result-body').hidden=false;
   const v=$('verdict'),o=s.orbit;let cls='no',title='',line='';
   if(s.reason==='orbit'){cls='ok';title='성공! 위성이 궤도에 올랐어요';line='가장 낮은 곳 '+fmtNum(o.rpAlt/1000)+' km, 가장 높은 곳 '+fmtNum(o.raAlt/1000)+' km, 한 바퀴 '+fmtNum(o.period/60,1)+'분';}
+  else if(s.reason==='height'){cls=s.max_altitude>=KARMAN_LINE?'ok':'no';title='측정 완료! 최고 높이 '+fmtLen(s.max_altitude);line=s.max_altitude>=KARMAN_LINE?'우주의 경계(100 km)를 넘었어요.':'우주의 경계(100 km)까지는 못 갔어요.';}
   else if(s.reason==='crash'){cls='bad';title='추락했어요';line=(CAUSE_TEXT[s.cause]||'궤도에 오르지 못하고 떨어졌어요')+(s.impact?' · 땅에 닿을 때 '+fmtNum(s.impact.speed)+' m/s':'');}
   else if(s.reason==='nolift'){title='못 떠올랐어요';line='힘이 무게보다 작아서 땅에서 떠오르지 못했어요. 연료 전지를 키우거나 무게를 줄여 보세요.';}
   else{title='궤도에 못 올랐어요';line='오래 날았지만 위성이 안정적으로 돌지 못했어요.';}
   v.className='verdict '+cls;v.innerHTML='<strong>'+title+'</strong><span class="plain">'+esc(line)+'</span>';
   const rows=[['제일 높이 간 곳',fmtLen(s.max_altitude)+(s.max_altitude>=KARMAN_LINE?' (우주 경계 넘음)':' (우주 경계 못 넘음)'),1],['최대 속도 (우주 기준)',fmtNum(s.maxV)+' m/s'],['제일 크게 받은 힘',s.maxG.toFixed(1)+' G'],
     ['공기 압력 최고 (Max-Q)',fmtNum(s.maxQ/1000,1)+' kPa · '+fmtLen(s.hQ)+'에서'],['몸통이 제일 뜨거웠던 온도',Math.round(s.maxTb)+' K (한계 '+Math.round(s.P.skinLim)+' K)'],['날개 최고 온도',Math.round(s.maxTw)+' K (한계 '+Math.round(s.P.wingLim)+' K)'],
-    ['날아간 시간',fmtTime(s.t)]];
+    ['날아간 시간',fmtTime(s.t)],
+    ['이륙할 때 가속도 (힘−무게)÷질량',s.a0===null?'—':fmtNum(s.a0,2)+' m/s²'],
+    ['1단이 다 탔을 때',s.h1===null?'—':fmtLen(s.h1)+' · '+fmtNum(s.v1)+' m/s'],
+    ['1단이 다 탔을 때 운동 에너지',s.ke1===null?'—':fmtNum(s.ke1/1e6)+' MJ'],
+    ['가장 컸던 운동 에너지 (땅 기준)',fmtNum(s.maxKE/1e6)+' MJ'],
+    ['공기 저항 때문에 잃은 속도',fmtNum(s.dragDV)+' m/s',1],
+    ['공기 저항 때문에 잃은 에너지',fmtNum(s.dragE/1e6)+' MJ']];
   if(s.sepTimes.length)rows.push(['단 분리 시각',s.sepTimes.map(function(t,i){return (i+1)+'단 T+'+Math.round(t)+'초';}).join(', ')]);
   if(s.impact)rows.push(['떨어진 곳',fmtNum(s.impact.dist/1000,1)+' km 떨어진 곳']);
   kv($('result-kv'),rows);
 }
 function makeRecord(s,sample){
   const o=s.orbit;
-  return {id:++runSeq,cfg:clone(s.cfg),m0:s.P.m0,reason:s.reason,cause:s.cause,apo:s.max_altitude,orb:s.reason==='orbit'&&o?{rp:o.rpAlt,ra:o.raAlt}:null,maxV:s.maxV,maxG:s.maxG,sample:!!sample};
+  return {id:++runSeq,cfg:clone(s.cfg),m0:s.P.m0,reason:s.reason,cause:s.cause,apo:s.max_altitude,a0:s.a0,dragDV:s.dragDV,ke1:s.ke1,orb:s.reason==='orbit'&&o?{rp:o.rpAlt,ra:o.raAlt}:null,maxV:s.maxV,maxG:s.maxG,sample:!!sample};
 }
 function onFinish(){
   running=false;lock(false);updateStatus();updateHud();showResult(sim);drawCharts();drawMap();
@@ -1799,6 +1840,7 @@ const DIFF_DEFS=[];
    ['initial_velocity','처음 속도',' m/s'],['launch_angle','발사각','°'],['vert_alt','곧바로 올라가는 높이',' km'],['turn_alt','눕는 끝 높이',' km'],['target_alt','목표 높이',' km'],['sep_delay','분리 간격',' 초']].forEach(function(a){
     DIFF_DEFS.push({l:a[1],g:function(c){return c[a[0]]+a[2];}});});
   [['dragOn','공기 저항'],['densModel','공기 얇아짐'],['rotOn','지구 자전'],['autoCut','자동 엔진 정지']].forEach(function(a){DIFF_DEFS.push({l:a[1],g:function(c){return c[a[0]]?'켬':'끔';}});});
+  DIFF_DEFS.push({l:'비행 방식',g:function(c){return c.mode==='height'?'높이 재기':'궤도 올리기';}});
   DIFF_DEFS.push({l:'방향',g:function(c){return c.dir==='E'?'동쪽':'서쪽';}});
   DIFF_DEFS.push({l:'고장 시험',g:function(c){return FAIL_NAMES[c.fail];}});
   DIFF_DEFS.push({l:'고장 시각',g:function(c){return c.fail==='none'?'-':c.fail_time+' 초';}});
@@ -1807,6 +1849,7 @@ function diffList(a,b){const out=[];DIFF_DEFS.forEach(function(d){const x=d.g(a)
 function addRun(rec){runs.push(rec);if(baseId===null)baseId=rec.id;renderRuns();}
 function verdictOf(r){
   if(r.reason==='orbit')return {cls:'ok',t:'궤도 성공'};
+  if(r.reason==='height')return r.apo>=KARMAN_LINE?{cls:'ok',t:'측정 완료 · 우주 도달'}:{cls:'no',t:'측정 완료 · 100 km 못 넘음'};
   if(r.reason==='crash')return {cls:'bad',t:'추락'+(CAUSE_TEXT[r.cause]?' · '+CAUSE_TEXT[r.cause].replace(/요$/,'요'):'')};
   if(r.reason==='nolift')return {cls:'no',t:'못 떠오름'};
   return {cls:'no',t:'궤도 실패'};
@@ -1823,7 +1866,8 @@ function renderRuns(){
       '<td>'+FUELS[r.cfg.stages[0].fuel].short+'</td><td class="num">'+fmtNum(r.m0)+'</td><td class="num">'+r.cfg.launch_angle+'</td>'+
       '<td class="num strong">'+fmtNum(r.apo/1000,1)+(r.apo===best?'<span class="tag best">최고</span>':'')+'</td><td class="num">'+(isBase?'—':(d>=0?'+':'')+fmtNum(d/1000,1))+'</td>'+
       '<td class="num">'+(r.orb?fmtNum(r.orb.rp/1000)+' × '+fmtNum(r.orb.ra/1000):'—')+'</td><td class="num">'+fmtNum(r.maxV)+'</td><td class="num">'+r.maxG.toFixed(1)+'</td>'+
-      '<td>'+(r.reason==='orbit'?'궤도에 올림':'못 올림')+'</td><td><span class="badge '+v.cls+'">'+esc(v.t)+'</span></td>'+
+      '<td class="num">'+(r.a0==null?'—':fmtNum(r.a0,1))+'</td><td class="num">'+(r.dragDV==null?'—':fmtNum(r.dragDV))+'</td>'+
+      '<td>'+(r.cfg.mode==='height'?'높이 재기':(r.reason==='orbit'?'궤도에 올림':'못 올림'))+'</td><td><span class="badge '+v.cls+'">'+esc(v.t)+'</span></td>'+
       '<td class="act"><button class="btn small" data-act="base" data-id="'+r.id+'" title="이 줄을 기준으로 정해요">★</button><button class="btn small" data-act="load" data-id="'+r.id+'" title="이 실험의 값을 다시 불러와요">불러오기</button><button class="btn small" data-act="del" data-id="'+r.id+'">지우기</button></td></tr>';
   }).join('');
 }
@@ -1836,9 +1880,9 @@ function runsClick(e){
 }
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true;},2200);}
 function csv(){
-  const head=['번호','기준과 다른 점','1단 연료','전체 무게(kg)','발사각','최고 높이(km)','가장 낮은 곳(km)','가장 높은 곳(km)','최대 속도(m/s)','최대 G','위성','결과'];
+  const head=['번호','기준과 다른 점','1단 연료','전체 무게(kg)','발사각','최고 높이(km)','가장 낮은 곳(km)','가장 높은 곳(km)','최대 속도(m/s)','최대 G','이륙 가속도(m/s²)','공기 저항 손실(m/s)','방식','결과'];
   const base=runs.find(function(r){return r.id===baseId;})||runs[0];
-  const rows=runs.map(function(r,i){return [i+1,'"'+(r.id===base.id?'기준':diffList(base.cfg,r.cfg).join('; '))+'"',FUELS[r.cfg.stages[0].fuel].short,Math.round(r.m0),r.cfg.launch_angle,(r.apo/1000).toFixed(1),r.orb?Math.round(r.orb.rp/1000):'',r.orb?Math.round(r.orb.ra/1000):'',Math.round(r.maxV),r.maxG.toFixed(1),r.reason==='orbit'?'올림':'못 올림',verdictOf(r).t].join(',');});
+  const rows=runs.map(function(r,i){return [i+1,'"'+(r.id===base.id?'기준':diffList(base.cfg,r.cfg).join('; '))+'"',FUELS[r.cfg.stages[0].fuel].short,Math.round(r.m0),r.cfg.launch_angle,(r.apo/1000).toFixed(1),r.orb?Math.round(r.orb.rp/1000):'',r.orb?Math.round(r.orb.ra/1000):'',Math.round(r.maxV),r.maxG.toFixed(1),r.a0==null?'':r.a0.toFixed(2),r.dragDV==null?'':Math.round(r.dragDV),r.cfg.mode==='height'?'높이 재기':'궤도',verdictOf(r).t].join(',');});
   return [head.join(',')].concat(rows).join('\n');
 }
 
@@ -1890,13 +1934,13 @@ function runLab(){
       const cur=t.id.split(':')[0]==='mat'?cfg.mat[t.id.split(':')[1]]===o:cfg.stages[+t.id.split(':')[1]].fuel===o;
       const info=t.id.split(':')[0]==='mat'?MATERIALS[o].short+' — '+MATERIALS[o].note:FUELS[o].name+' — '+FUELS[o].energy;
       return '<tr><td>'+(t.id.split(':')[0]==='mat'?MATERIALS[o].short:FUELS[o].short)+(cur?'<span class="tag">지금 선택</span>':'')+'</td><td class="num strong">'+pc+' %</td>'+
-        '<td style="min-width:110px"><div class="track'+(pc>=50?' hit':'')+'"><i style="width:'+pc+'%"></i></div></td><td class="num">'+(r.n?fmtNum(r.apo/r.n/1000,0)+' km':'—')+'</td><td>'+(top?esc(CAUSE_TEXT[top]||top):(r.n&&r.ok===r.n?'없음':'—'))+'</td><td style="white-space:normal;min-width:220px">'+esc(info)+'</td></tr>';}).join('');
+        '<td style="min-width:110px"><div class="track'+(pc>=50?' hit':'')+'"><i style="width:'+pc+'%"></i></div></td><td class="num">'+(r.n?fmtNum(r.apo/r.n/1000,0)+' km':'—')+'</td><td>'+(top?esc(top==='low'?'100 km까지 못 갔어요':(CAUSE_TEXT[top]||top)):(r.n&&r.ok===r.n?'없음':'—'))+'</td><td style="white-space:normal;min-width:220px">'+esc(info)+'</td></tr>';}).join('');
   }
   function step(){
     const t0=performance.now();
     while(jobs.length&&performance.now()-t0<40){
       const j=jobs.shift(),s=runToEnd(labCfg(t,j[0],j[1])),r=res[j[0]];r.n++;r.apo+=s.max_altitude;
-      if(s.reason==='orbit')r.ok++;else{const w=s.cause||s.reason;r.why[w]=(r.why[w]||0)+1;}done++;
+      if(s.reason==='orbit'||(s.reason==='height'&&s.max_altitude>=KARMAN_LINE))r.ok++;else{const w=s.cause||(s.reason==='height'?'low':s.reason);r.why[w]=(r.why[w]||0)+1;}done++;
     }
     $('lab-progress').textContent='실험 중... '+done+' / '+(t.opts.length*N);render();
     if(jobs.length)setTimeout(step,0);
@@ -1927,6 +1971,9 @@ function init(){
   $('sw-cut').addEventListener('change',function(e){cfg.autoCut=e.target.checked;touch();});
   $('sel-dir').addEventListener('change',function(e){cfg.dir=e.target.value;touch();});
   $('sel-fail').addEventListener('change',function(e){cfg.fail=e.target.value;touch();});
+  $('sel-mode').addEventListener('change',function(e){cfg.mode=e.target.value;$('mode-note').textContent=MODE_NOTE[cfg.mode];touch();});
+  $('btn-team').addEventListener('click',function(){if(running)return;cfg=clone(TEAM_BASE);buildAll();V3.look(cfg);updateReadouts();prepare();toast('조 기본 세팅을 불러왔어요. 이제 한 가지만 바꿔서 쏴 보세요.');});
+  $('btn-orbitdef').addEventListener('click',function(){if(running)return;cfg=clone(DEFAULT_CFG);buildAll();V3.look(cfg);updateReadouts();prepare();toast('위성 발사용 기본값을 불러왔어요.');});
   // 버튼
   $('btn-launch').addEventListener('click',launch);
   $('btn-instant').addEventListener('click',instant);
@@ -1949,9 +1996,9 @@ function init(){
   if(window.ResizeObserver){new ResizeObserver(function(){V3.resize();drawCharts();drawMap();drawDensity();}).observe($('view3d'));}
   window.addEventListener('resize',function(){V3.resize();drawCharts();drawMap();drawDensity();});
   // 예시 실험 기록
-  const seeds=[{},{launch_angle:85},{fail:'engine_cut',fail_time:40},{mat:{wing:'cfrp'}}];
+  const seeds=[{},{mat:{body:'ti'}},{dragOn:false}];
   seeds.forEach(function(sd){
-    const c=clone(DEFAULT_CFG);for(const k in sd){if(k==='mat')Object.assign(c.mat,sd.mat);else c[k]=sd[k];}
+    const c=clone(TEAM_BASE);for(const k in sd){if(k==='mat')Object.assign(c.mat,sd.mat);else c[k]=sd[k];}
     try{addRun(makeRecord(runToEnd(c),true));}catch(e){}
   });
   prepare();drawCharts();drawMap();
@@ -1962,3 +2009,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 })();
 </script>
+</body>
+</html>
